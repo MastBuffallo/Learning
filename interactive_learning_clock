@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Learning Clock</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        /* --- Basic Setup & Theme --- */
+        :root {
+            --background-color: #DAA520; /* Golden Yellow */
+            --hand-color: #DC143C;       /* Golden Red (Crimson) */
+            --number-color: #00008B;     /* Deep Blue */
+            --shadow-color: rgba(0, 0, 0, 0.4);
+            --button-primary: #4CAF50;   /* Green */
+            --button-secondary: #2196F3; /* Blue */
+            --button-danger: #f44336;    /* Red */
+        }
+
+        body {
+            background-color: var(--background-color);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%239C92AC' fill-opacity='0.1' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'%3E%3C/path%3E%3C/svg%3E");
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* --- Mode Toggle Buttons --- */
+        .mode-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .mode-btn {
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 2px 2px 8px var(--shadow-color);
+        }
+
+        .mode-btn.active {
+            background-color: var(--button-primary);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 3px 3px 12px var(--shadow-color);
+        }
+
+        .mode-btn.inactive {
+            background-color: #ccc;
+            color: #666;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 4px 4px 12px var(--shadow-color);
+        }
+
+        /* --- Clock Container --- */
+        .clock {
+            width: 90vw;
+            height: 90vw;
+            max-width: 400px;
+            max-height: 400px;
+            position: relative;
+            border-radius: 50%;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.15);
+            background: var(--background-color); /* Golden Yellow background */
+        }
+
+        /* --- Clock Hands --- */
+        .hand {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            background-color: var(--hand-color);
+            transform-origin: bottom;
+            border-radius: 4px;
+            box-shadow: 2px 2px 5px var(--shadow-color);
+            z-index: 10;
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+
+        .hand.dragging {
+            filter: brightness(1.3);
+            transform-origin: bottom;
+        }
+
+        .hour-hand {
+            width: 8px;
+            height: 25%;
+            transform: translateX(-50%);
+        }
+
+        .minute-hand {
+            width: 6px;
+            height: 35%;
+            transform: translateX(-50%);
+        }
+
+        .second-hand {
+            width: 3px;
+            height: 40%;
+            background-color: var(--hand-color);
+            transform: translateX(-50%);
+        }
+
+        .center-dot {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 15px;
+            height: 15px;
+            background-color: var(--hand-color);
+            border: 2px solid var(--background-color);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 11;
+        }
+
+        /* --- Numbers and Graduations --- */
+        .number, .graduation {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+        }
+
+        .number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--number-color);
+            text-shadow: 1px 1px 3px var(--shadow-color);
+            padding-top: 10px;
+            box-sizing: border-box;
+        }
+
+        .number span {
+            display: inline-block;
+        }
+
+        .graduation {
+            padding-top: 6px;
+            box-sizing: border-box;
+        }
+
+        .graduation .tick {
+            display: block;
+            width: 2px;
+            height: 10px;
+            background-color: var(--number-color);
+            margin: 0 auto;
+        }
+
+        /* --- Control Panel --- */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            max-width: 600px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 2px 2px 5px var(--shadow-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 4px 4px 8px var(--shadow-color);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: 2px 2px 5px var(--shadow-color);
+        }
+
+        .btn-primary { background-color: var(--button-primary); color: white; }
+        .btn-secondary { background-color: var(--button-secondary); color: white; }
+        .btn-danger { background-color: var(--button-danger); color: white; }
+
+        /* --- Time Display --- */
+        .time-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--number-color);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 15px;
+            box-shadow: 2px 2px 8px var(--shadow-color);
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* --- Test Mode Specific --- */
+        .test-controls {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 2px 2px 8px var(--shadow-color);
+            text-align: center;
+        }
+
+        .time-input {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .time-input input {
+            width: 60px;
+            padding: 8px;
+            font-size: 1.2rem;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .time-input label {
+            font-weight: bold;
+            color: var(--number-color);
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 300px;
+                margin: 0 auto;
+            }
+            
+            .time-input {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mode Toggle Buttons -->
+    <div class="mode-buttons">
+        <button class="mode-btn active" id="real-clock-btn">🕐 Real Clock</button>
+        <button class="mode-btn inactive" id="test-mode-btn">📚 Test Mode</button>
+    </div>
+
+    <!-- Clock Display -->
+    <div class="clock" id="clock">
+        <div class="hand hour-hand" data-hour-hand></div>
+        <div class="hand minute-hand" data-minute-hand></div>
+        <div class="hand second-hand" data-second-hand></div>
+        <div class="center-dot"></div>
+    </div>
+
+    <!-- Time Display - Only shown in Real Clock mode -->
+    <div class="time-display" id="time-display">12:00:00</div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <!-- Real Clock Controls -->
+        <div id="real-clock-controls">
+            <button class="btn btn-secondary" id="audio-toggle">🔊 Enable Ticking</button>
+        </div>
+
+        <!-- Test Mode Controls -->
+        <div id="test-mode-controls" class="test-controls hidden">
+            <h3 style="margin-top: 0; color: var(--number-color);">Test Mode</h3>
+            
+            <div style="margin: 15px 0;">
+                <button class="btn btn-secondary" id="random-time-btn">🎲 Random Time</button>
+            </div>
+            
+            <p style="color: #666; font-size: 0.9rem; margin: 10px 0;">
+                💡 Tip: Drag the clock hands to set time, then try to read what time it shows!
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // --- Element Selection ---
+        const hourHand = document.querySelector('[data-hour-hand]');
+        const minuteHand = document.querySelector('[data-minute-hand]');
+        const secondHand = document.querySelector('[data-second-hand]');
+        const clockContainer = document.getElementById('clock');
+        const timeDisplay = document.getElementById('time-display');
+        
+        // Mode buttons
+        const realClockBtn = document.getElementById('real-clock-btn');
+        const testModeBtn = document.getElementById('test-mode-btn');
+        const realClockControls = document.getElementById('real-clock-controls');
+        const testModeControls = document.getElementById('test-mode-controls');
+        
+        // Audio button
+        const audioButton = document.getElementById('audio-toggle');
+        
+        // Test mode controls
+        const randomTimeBtn = document.getElementById('random-time-btn');
+
+        // --- State Management ---
+        let currentMode = 'real'; // 'real' or 'test'
+        let clockInterval = null;
+        let testTime = { hours: 12, minutes: 0, seconds: 0 };
+        let isDragging = false;
+        let dragHand = null;
+
+        // --- Sound Setup ---
+        let isAudioEnabled = false;
+        const tickSound = new Tone.MembraneSynth({
+            octaves: 4,
+            pitchDecay: 0.1,
+        }).toDestination();
+
+        // --- Mode Switching ---
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            if (mode === 'real') {
+                realClockBtn.classList.add('active');
+                realClockBtn.classList.remove('inactive');
+                testModeBtn.classList.add('inactive');
+                testModeBtn.classList.remove('active');
+                realClockControls.classList.remove('hidden');
+                testModeControls.classList.add('hidden');
+                timeDisplay.classList.remove('hidden'); // Show time display
+                
+                // Start real clock
+                startRealClock();
+                enableHandDragging(false);
+            } else {
+                testModeBtn.classList.add('active');
+                testModeBtn.classList.remove('inactive');
+                realClockBtn.classList.add('inactive');
+                realClockBtn.classList.remove('active');
+                realClockControls.classList.add('hidden');
+                testModeControls.classList.remove('hidden');
+                timeDisplay.classList.add('hidden'); // Hide time display
+                
+                // Stop real clock and enable test mode
+                stopRealClock();
+                enableHandDragging(true);
+                updateTestClock();
+            }
+        }
+
+        // --- Real Clock Functions ---
+        function startRealClock() {
+            setClock();
+            clockInterval = setInterval(setClock, 1000);
+        }
+
+        function stopRealClock() {
+            if (clockInterval) {
+                clearInterval(clockInterval);
+                clockInterval = null;
+            }
+        }
+
+        function setClock() {
+            const now = new Date();
+            const seconds = now.getSeconds();
+            const minutes = now.getMinutes();
+            const hours = now.getHours() % 12;
+
+            updateClockHands(hours, minutes, seconds);
+            
+            // Update time display
+            const displayHours = now.getHours();
+            const ampm = displayHours >= 12 ? 'PM' : 'AM';
+            const display12Hour = displayHours % 12 || 12;
+            timeDisplay.textContent = `${display12Hour}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} ${ampm}`;
+
+            // Play tick sound
+            if (isAudioEnabled) {
+                tickSound.triggerAttackRelease("C5", "8n", Tone.now());
+            }
+        }
+
+        // --- Test Mode Functions ---
+        function updateTestClock() {
+            // Pass the actual hours (not hours % 12) so the calculation works correctly
+            updateClockHands(testTime.hours, testTime.minutes, testTime.seconds);
+            
+            // No time display update in test mode - display is hidden
+        }
+
+        function setRandomTime() {
+            const hours = Math.floor(Math.random() * 12) + 1;
+            const minutes = Math.floor(Math.random() * 60);
+            
+            testTime.hours = hours;
+            testTime.minutes = minutes;
+            testTime.seconds = 0;
+            
+            updateTestClock();
+        }
+
+        // --- Clock Hand Updates ---
+        function updateClockHands(hours, minutes, seconds, isDraggingHour = false) {
+            const secondsRatio = seconds / 60;
+            const minutesRatio = (minutes + secondsRatio) / 60;
+            
+            let hoursRatio;
+            if (isDraggingHour) {
+                // When dragging hour hand, position it exactly on the hour (no minute offset)
+                hoursRatio = (hours % 12) / 12;
+            } else {
+                // Normal behavior: hour hand moves smoothly based on minutes
+                hoursRatio = ((hours % 12) + minutesRatio) / 12;
+            }
+
+            const secondRotation = secondsRatio * 360;
+            const minuteRotation = minutesRatio * 360;
+            const hourRotation = hoursRatio * 360;
+
+            secondHand.style.transform = `translateX(-50%) rotate(${secondRotation}deg)`;
+            minuteHand.style.transform = `translateX(-50%) rotate(${minuteRotation}deg)`;
+            hourHand.style.transform = `translateX(-50%) rotate(${hourRotation}deg)`;
+        }
+
+        // --- Hand Dragging for Test Mode ---
+        function enableHandDragging(enable) {
+            if (enable) {
+                hourHand.style.cursor = 'grab';
+                minuteHand.style.cursor = 'grab';
+                
+                hourHand.addEventListener('mousedown', startDrag);
+                minuteHand.addEventListener('mousedown', startDrag);
+                hourHand.addEventListener('touchstart', startDrag);
+                minuteHand.addEventListener('touchstart', startDrag);
+            } else {
+                hourHand.style.cursor = 'default';
+                minuteHand.style.cursor = 'default';
+                
+                hourHand.removeEventListener('mousedown', startDrag);
+                minuteHand.removeEventListener('mousedown', startDrag);
+                hourHand.removeEventListener('touchstart', startDrag);
+                minuteHand.removeEventListener('touchstart', startDrag);
+            }
+        }
+
+        function startDrag(e) {
+            if (currentMode !== 'test') return;
+            
+            isDragging = true;
+            dragHand = e.target;
+            dragHand.classList.add('dragging');
+            
+            document.addEventListener('mousemove', handleDrag);
+            document.addEventListener('mouseup', stopDrag);
+            document.addEventListener('touchmove', handleDrag);
+            document.addEventListener('touchend', stopDrag);
+            
+            e.preventDefault();
+        }
+
+        function handleDrag(e) {
+            if (!isDragging || !dragHand) return;
+            
+            const rect = clockContainer.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            const angle = Math.atan2(clientY - centerY, clientX - centerX);
+            let degrees = (angle * 180 / Math.PI + 90) % 360;
+            if (degrees < 0) degrees += 360;
+            
+            if (dragHand === hourHand) {
+                // Hour hand: snap to exact hour positions (30-degree increments)
+                const hourValue = Math.round(degrees / 30);
+                const finalHour = hourValue === 0 ? 12 : hourValue;
+                
+                testTime.hours = finalHour;
+                
+                // Update with isDraggingHour = true so hour hand snaps to exact position
+                updateClockHands(testTime.hours, testTime.minutes, testTime.seconds, true);
+            } else if (dragHand === minuteHand) {
+                // Minute hand: move freely
+                const minuteValue = Math.round(degrees / 6);
+                testTime.minutes = minuteValue === 60 ? 0 : minuteValue;
+                
+                // Normal update - hour hand will position smoothly
+                updateClockHands(testTime.hours, testTime.minutes, testTime.seconds, false);
+            }
+            
+            // No time display update during drag in test mode
+        }
+
+        function stopDrag() {
+            if (dragHand) {
+                dragHand.classList.remove('dragging');
+                dragHand = null;
+            }
+            isDragging = false;
+            
+            // After dragging stops, update with smooth positioning
+            updateTestClock();
+            
+            document.removeEventListener('mousemove', handleDrag);
+            document.removeEventListener('mouseup', stopDrag);
+            document.removeEventListener('touchmove', handleDrag);
+            document.removeEventListener('touchend', stopDrag);
+        }
+
+        // --- Clock Face Creation ---
+        function createClockFace() {
+            for (let i = 1; i <= 12; i++) {
+                const numberDiv = document.createElement('div');
+                numberDiv.classList.add('number');
+                numberDiv.style.transform = `rotate(${i * 30}deg)`;
+                
+                const numberSpan = document.createElement('span');
+                numberSpan.textContent = i;
+                numberSpan.style.transform = `rotate(${-i * 30}deg)`;
+                
+                numberDiv.appendChild(numberSpan);
+                clockContainer.appendChild(numberDiv);
+            }
+
+            for (let i = 1; i <= 60; i++) {
+                if (i % 5 === 0) continue;
+
+                const graduationDiv = document.createElement('div');
+                graduationDiv.classList.add('graduation');
+                graduationDiv.style.transform = `rotate(${i * 6}deg)`;
+                
+                const tickSpan = document.createElement('span');
+                tickSpan.classList.add('tick');
+                
+                graduationDiv.appendChild(tickSpan);
+                clockContainer.appendChild(graduationDiv);
+            }
+        }
+
+        // --- Event Listeners ---
+        realClockBtn.addEventListener('click', () => switchMode('real'));
+        testModeBtn.addEventListener('click', () => switchMode('test'));
+
+        audioButton.addEventListener('click', async () => {
+            if (Tone.context.state !== 'running') {
+                await Tone.start();
+            }
+            isAudioEnabled = !isAudioEnabled;
+            audioButton.textContent = isAudioEnabled ? '🔇 Disable Ticking' : '🔊 Enable Ticking';
+        });
+
+        randomTimeBtn.addEventListener('click', setRandomTime);
+
+        // --- Initialize ---
+        createClockFace();
+        switchMode('real'); // Start in real clock mode
+    </script>
+</body>
+</html>
